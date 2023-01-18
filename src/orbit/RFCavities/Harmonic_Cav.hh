@@ -19,10 +19,16 @@ using namespace std;
 class Harmonic_Cav: public OrbitUtils::CppPyWrapper
 {
   public:
-    Harmonic_Cav(double ZtoPhi, double dESync   ,
+
+  enum correction_type {energy_correction, position_correction, no_correction};
+
+
+    Harmonic_Cav(double ZtoPhi, double dESync,
                  double RFHNum, double RFVoltage,
                  double RFPhase);
+
     virtual ~Harmonic_Cav();
+
     void   setZtoPhi(double ZtoPhi);
     double getZtoPhi();
     void   setdESync(double dESync);
@@ -33,17 +39,17 @@ class Harmonic_Cav: public OrbitUtils::CppPyWrapper
     double getRFVoltage();
     void   setRFPhase(double RFPhase);
     double getRFPhase();
+
     void   trackBunch(Bunch* bunch);
 
   private:
-  double _ZtoPhi;
-  double _dESync;
-  double _RFHNum;
-  double _RFVoltage;
-  double _RFPhase;
 
-  protected:
-
+    double ZtoPhi_;
+    double dESync_;
+    double RFHNum_;
+    double RFVoltage_;
+    double RFPhase_;
+    correction_type correction_;_ 
 };
 
 #endif

@@ -5,6 +5,8 @@ Module. Includes classes for RF accelerator nodes.
 import sys
 import os
 import math
+from math import pi, sin
+#from scipy.interpolate import interp1d
 
 # import the function that finalizes the execution
 from orbit.utils import orbitFinalize
@@ -176,43 +178,42 @@ class Dual_Harmonic_RFNode(Base_RFNode):
 class BRhoDep_Harmonic_RFNode(Base_RFNode):
 
 	def __init__(self, ZtoPhi, accelDict, bunch,\
-		length, name = "brho_timedep_harmonic_rfnode"):
+	        name = "brho_timedep_harmonic_rfnode"):
 		"""
 			Constructor. Creates BRho Time Dependent
 			Harmonic RF Cavity TEAPOT element
 		"""
-		Base_RFNode.__init__(self, length, name)
-		self.Z2Phi = ZtoPhi
+                Base_RFNode.__init__(self, length=0.0, name=name)
+		self.Z2Phi     = ZtoPhi
 		self.localDict = accelDict
-		gammaTrans = self.localDict["gammaTrans"]
-		RFHNum = self.localDict["RFHNum"]
-		n_tuple = self.localDict["n_tuple"]
-		time_tuple = self.localDict["time"]
-		BRho_tuple = self.localDict["BRho"]
-		RFVoltage_tuple = self.localDict["RFVoltage"]
-		RFPhase_tuple = self.localDict["RFPhase"]
-		time = bunch.getSyncParticle().time()
+
+                gammaTrans      = self.localDict["gammaTrans"]
+                RFHNum          = self.localDict["RFHNum"]
+
+                BRho_vs_t       = self.localDict["BRho_vs_t"]
+                RFVoltage_vs_t  = self.localDict["RFVoltage_vs_t"]
+                RFPhase_vs_t    = self.localDict["RFPhase_vs_t"]
+                phaseCor        = self.localDict["RFJumpCor"]                
+
+                #print("phaseCor = {:g}".format(phaseCor))
+
+                time = bunch.getSyncParticle().time()
 		mass = bunch.mass()
 		charge = bunch.charge()
 		gamma = bunch.getSyncParticle().gamma()
-		keold = bunch.getSyncParticle().kinEnergy()
-		eold = keold + mass
-		RFVoltage = interp(time, n_tuple,\
-			time_tuple, RFVoltage_tuple)
-		RFPhase = interp(time, n_tuple,\
-			time_tuple, RFPhase_tuple)
-		BRho = interp(time, n_tuple,\
-			time_tuple, BRho_tuple)
-		pcnew = 0.299792458 * charge * BRho
-		enew = math.sqrt(pcnew * pcnew + mass * mass)
-		kenew = enew - mass
-		bunch.getSyncParticle().kinEnergy(kenew)
-		dESync = enew - eold
-		Zsync = syncZ(ZtoPhi, gammaTrans, gamma, charge,\
-			dESync, RFHNum, RFVoltage, RFPhase)
-		bunch.getSyncParticle().z(Zsync)
+
+		BRho      = BRho_vs_t(time)
+                RFVoltage = RFVoltage_vs_t(time)
+		RFPhase   = RFPhase_vs_t(time)
+
+                
+                pcnew = 0.299792458 * charge * BRho
+		bunch.getSyncParticle().momentum(pcnew)
+                dESync  = charge*RFVoltage*sin(RFPhase*pi/180.0) # is this needed at all ? 
+
 		self.harmonicnode = Harmonic_Cav(ZtoPhi, dESync,\
-			RFHNum, RFVoltage, RFPhase)
+			                         RFHNum, RFVoltage, RFPhase, gammaTrans, phaseCor)
+
 		self.setType("harmonic rf node")
 		self.setLength(0.0)
 
@@ -222,86 +223,65 @@ class BRhoDep_Harmonic_RFNode(Base_RFNode):
 			AccNodeBunchTracker class track(probe) method.
 		"""
 		length = self.getLength(self.getActivePartIndex())
-		gammaTrans = self.localDict["gammaTrans"]
-		RFHNum = self.localDict["RFHNum"]
-		n_tuple = self.localDict["n_tuple"]
-		time_tuple = self.localDict["time"]
-		BRho_tuple = self.localDict["BRho"]
-		RFVoltage_tuple = self.localDict["RFVoltage"]
-		RFPhase_tuple = self.localDict["RFPhase"]
+
+                gammaTrans      = self.localDict["gammaTrans"]
+                RFHNum          = self.localDict["RFHNum"]
+                BRho_vs_t       = self.localDict["BRho_vs_t"]
+                RFVoltage_vs_t  = self.localDict["RFVoltage_vs_t"]
+                RFPhase_vs_t    = self.localDict["RFPhase_vs_t"]
+                
 		time = bunch.getSyncParticle().time()
 		mass = bunch.mass()
 		charge = bunch.charge()
 		gamma = bunch.getSyncParticle().gamma()
-		keold = bunch.getSyncParticle().kinEnergy()
-		eold = keold + mass
-		RFVoltage = interp(time, n_tuple,\
-			time_tuple, RFVoltage_tuple)
-		RFPhase = interp(time, n_tuple,\
-			time_tuple, RFPhase_tuple)
-		BRho = interp(time, n_tuple,\
-			time_tuple, BRho_tuple)
-		pcnew = 0.299792458 * charge * BRho
-		enew = math.sqrt(pcnew * pcnew + mass * mass)
-		kenew = enew - mass
-		bunch.getSyncParticle().kinEnergy(kenew)
-		dESync = enew - eold
-		ZtoPhi = self.Z2Phi
-		Zsync = syncZ(ZtoPhi, gammaTrans, gamma, charge,\
-			dESync, RFHNum, RFVoltage, RFPhase)
-		bunch.getSyncParticle().z(Zsync)
-		self.harmonicnode.dESync(dESync)
+
+		BRho      = BRho_vs_t(time)
+                RFVoltage = RFVoltage_vs_t(time)
+		RFPhase   = RFPhase_vs_t(time)
+
+                pcnew = 0.299792458 * charge * BRho
+		bunch.getSyncParticle().momentum(pcnew)
 		self.harmonicnode.RFVoltage(RFVoltage)
 		self.harmonicnode.RFPhase(RFPhase)
+
 		#put the track method here:
-		self.harmonicnode.trackBunch(bunch)
-		#print "debug tracking the bunch through the rf node = ",\
-		self.getName(), " part ind = ", self.getActivePartIndex(),\
-		" length = ", length
+                self.harmonicnode.trackBunch(bunch)
 
 	def track(self, paramsDict):
 		"""
 			The rfcavity-teapot class implementation of the
 			AccNodeBunchTracker class track(probe) method.
 		"""
-		length = self.getLength(self.getActivePartIndex())
-		bunch = paramsDict["bunch"]
-		gammaTrans = self.localDict["gammaTrans"]
-		RFHNum = self.localDict["RFHNum"]
-		n_tuple = self.localDict["n_tuple"]
-		time_tuple = self.localDict["time"]
-		BRho_tuple = self.localDict["BRho"]
-		RFVoltage_tuple = self.localDict["RFVoltage"]
-		RFPhase_tuple = self.localDict["RFPhase"]
-		time = bunch.getSyncParticle().time()
+		length     = self.getLength(self.getActivePartIndex())
+		bunch      = paramsDict["bunch"]
+
+                gammaTrans      = self.localDict["gammaTrans"]
+		RFHNum          = self.localDict["RFHNum"]
+                BRho_vs_t       = self.localDict["BRho_vs_t"]        # callable - interpolation function 
+                RFVoltage_vs_t  = self.localDict["RFVoltage_vs_t"]   # callable - interpolation function
+                RFPhase_vs_t    = self.localDict["RFPhase_vs_t"]     # callable - interpolation function 
+
+                time = bunch.getSyncParticle().time()
 		mass = bunch.mass()
 		charge = bunch.charge()
 		gamma = bunch.getSyncParticle().gamma()
-		keold = bunch.getSyncParticle().kinEnergy()
-		eold = keold + mass
-		RFVoltage = interp(time, n_tuple,\
-			time_tuple, RFVoltage_tuple)
-		RFPhase = interp(time, n_tuple,\
-			time_tuple, RFPhase_tuple)
-		BRho = interp(time, n_tuple,\
-			time_tuple, BRho_tuple)
-		pcnew = 0.299792458 * charge * BRho
-		enew = math.sqrt(pcnew * pcnew + mass * mass)
-		kenew = enew - mass
-		bunch.getSyncParticle().kinEnergy(kenew)
-		dESync = enew - eold
-		ZtoPhi = self.Z2Phi
-		Zsync = syncZ(ZtoPhi, gammaTrans, gamma, charge,\
-			dESync, RFHNum, RFVoltage, RFPhase)
-		bunch.getSyncParticle().z(Zsync)
-		self.harmonicnode.dESync(dESync)
+	
+
+                BRho      = BRho_vs_t(time)
+                RFVoltage = RFVoltage_vs_t(time)
+		RFPhase   = RFPhase_vs_t(time)
+
+                pcnew = 0.299792458 * charge * BRho
+                bunch.getSyncParticle().momentum(pcnew) 
+
+                ZtoPhi = self.Z2Phi
 		self.harmonicnode.RFVoltage(RFVoltage)
 		self.harmonicnode.RFPhase(RFPhase)
+
 		#put the track method here:
 		self.harmonicnode.trackBunch(bunch)
-		#print "debug tracking the bunch through the rf node = ",\
-		self.getName(), " part ind = ", self.getActivePartIndex(),\
-		" length = ", length
+
+
 
 class SyncPhaseDep_Harmonic_RFNode(Base_RFNode):
 
@@ -596,17 +576,23 @@ def interp(x, n_tuple, x_tuple, y_tuple):
 	return y
 
 def syncZ(ZtoPhi, gammaTrans, gamma, charge,\
-	dESync, RFHNum, RFVoltage, RFPhase):
+
+        # JFO: as far as I can tell, this function serves no purpose except perhaps as a diagnostic
+        # for the sync particle, unless the voltage/rf phase are inconsistent for synchronism   
+        # syncZ always return a very small number, nearly zero. If the synchronization is perfect,
+        # this would be exactly 0. ???? The z coordinate of the syncParticle does not appear to be
+        # used anywhere else in the code.
+          
+        dESync, RFHNum, RFVoltage, RFPhase):
 	"""
 	Calculates position of synchronous particle.
 	"""
-	Zsync = 0
-	if abs(dESync) > abs(charge * RFVoltage):
+        Zsync = 0
+	if abs(dESync) > abs(charge * RFVoltage): # this cannot happen: -1 < sin(phi) < 1 so one must have abs(dE/V) < 1    
 		return Zsync
 	PhaseTot = math.asin(dESync / (charge * RFVoltage))
 	if gamma > gammaTrans and gammaTrans > 0:
 		PhaseTot = math.pi - PhaseTot
-	Zsync = -(PhaseTot - math.pi * RFPhase / 180.0)\
-		/ (RFHNum * ZtoPhi)
-	return Zsync
+	Zsync = -(PhaseTot - math.pi * RFPhase / 180.0)/ (RFHNum * ZtoPhi)
+        return Zsync
 
