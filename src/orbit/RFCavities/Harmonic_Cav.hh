@@ -49,7 +49,7 @@ class Harmonic_Cav: public OrbitUtils::CppPyWrapper
     double RFHNum_;
     double RFVoltage_;
     double RFPhase_;
-    correction_type correction_;_ 
+    correction_type correction_; 
 };
 
 #endif
