@@ -1,7 +1,7 @@
 #include "Harmonic_Cav.hh"
 #include "ParticleMacroSize.hh"
-#define FMT_HEADER_ONLY
-#include <fmt/format.h>
+//#define FMT_HEADER_ONLY
+//#include <fmt/format.h>
 
 #include <iostream>
 #include <cmath>
@@ -26,17 +26,19 @@ Harmonic_Cav::Harmonic_Cav(double ZtoPhi,
       RFPhase_(RFPhase)
 {
 
-  correction = no_correction;
+  correction_ = no_correction;
+
+  char const* pTmp = 0;
   
   if ( pTmp =getenv("HCAV_CORRECTION")) {
 
-     HCAV_CORRECTION = std::string(pTmp);
+     string HCAV_CORRECTION = std::string(pTmp);
 
      if (HCAV_CORRECTION == "POSITION") {
-           correction = position_correction; 
+           correction_ = position_correction; 
      }
      else if (HCAV_CORRECTION == "ENERGY") {
-           correction = energy_correction; 
+           correction_ = energy_correction; 
      }
   }
 
@@ -170,18 +172,18 @@ void Harmonic_Cav::trackBunch(Bunch* bunch)
   //  ------------------------------------------
   char* pTmp = 0;
 
-  switch (correction) {
-     case: no_correction:
+  switch (correction_) {
+     case  no_correction:
            ek_cor  = 1.0;
 	   pos_cor = 1.0;
 	   std::cout << "DEBUG:  Harmonic_Cav: NO CORRECTION "<< std::endl;
            break;
-      case: position_correction:
+      case position_correction:
 	   ek_cor  = 1.0;
 	   pos_cor = bratio;
 	   std::cout << "DEBUG: Harmonic_Cav: APPLYING POSITION_CORRECTION"<< std::endl;
 	   break;
-      case: energy_correction:
+      case energy_correction:
 	   ek_cor  = bratio;
 	   pos_cor = 1.0;
 	   std::cout << "DEBUG:  Harmonic_Cav: APPLYING ENERGY_CORRECTION "<< std::endl;
